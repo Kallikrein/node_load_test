@@ -1,8 +1,6 @@
 #!/usr/bin/env node
 "use strict";
 
-console.log("Node load test runner");
-
 let axios = require("axios");
 let async = require("async");
 let path = require("path");
@@ -15,42 +13,14 @@ const argv = require("minimist")(process.argv.slice(2));
 const SIZE = argv.size || argv.s || 1;
 const FREQUENCY = argv.frequency || argv.f || 1;
 
-console.log("launching ", SIZE, " at ", FREQUENCY, " request per second");
-// const batches = argv._.map(function (file) {
-// 	return require(path.join(__dirname, argv._[0]));
-// });
+var ended = 0;
+var times = [];
 
-// if (cluster.isMaster) {
-// // Fork workers.
-// 	for (var i = 0; i < numCPUs; i++) {
-// 		cluster.fork();
-// 	}
-// 	Object.keys
-// } else {
-	const START = process.hrtime();
-	global.requestID = 0;
-	var processed = 0;
-	var requestSent = 0;
-	var requestReceived = 0;
-	var interval = setInterval(percentPerSecond, 100)
-	async.timesLimit(SIZE, FREQUENCY, delay, end);
-
-	function percentPerSecond () {
-		var processedPercent = Math.floor(processed / SIZE * 100);
-		var requestSentPercent = Math.floor(requestSent / SIZE * 100);
-		var requestReceivedPercent = Math.floor(requestReceived / SIZE * 100);
-		process.stdout.clearLine();
-		process.stdout.cursorTo(0);
-		process.stdout.write("Processed request : " + processedPercent + "%");
-		if (requestSent >= SIZE - 1) {
-			clearInterval(interval);
-			process.stdout.clearLine();
-			process.stdout.cursorTo(0);
-			console.log('Done in ' + process.hrtime(START)[0] + ' seconds.')
-		}
-	}
-
-	function end(err, times) {
+function mess (id, message) {
+	cluster.workers[id].disconnect();
+	times = times.concat(message);
+	ended++;
+	if (ended === numCPUs) {
 		console.log({
 			mean : stats.mean(times),
 			median: stats.median(times),
@@ -76,18 +46,38 @@ console.log("launching ", SIZE, " at ", FREQUENCY, " request per second");
 			}
 		});
 	}
+}
+
+if (cluster.isMaster) {
+
+	console.log("Node load test runner");
+	console.log("launching ", SIZE, " requests at ", FREQUENCY, " request per second, on " + numCPUs + " cores.");
+
+// Fork workers.
+	var promises = [];
+	for (var i = 0; i < numCPUs; i++) {
+		cluster.fork();
+	}
+	Object.keys(cluster.workers).forEach(function (id) {
+		cluster.workers[id].on('message', mess.bind(null, id));
+	});
+} else {
+	const START = process.hrtime();
+	async.timesLimit(SIZE, FREQUENCY, delay, end);
+
+	function end(err, times) {
+		process.send(times);
+	}
 
 	function callBack (TIMER, cb, res) {
-		requestReceived++;
 		let diff = process.hrtime(TIMER);
 		let time = 1000 * diff[0] + Math.floor(diff[1] / 1000000);
 		cb(null, time);
 	}
 
-	function run (index, cool, cb) {
+	function run (index, cb) {
 		let TIMER = process.hrtime();
 		const CB = callBack.bind(null, TIMER, cb);
-		requestSent++;
 		axios.post('https://w9wv7dyvb4.execute-api.eu-west-1.amazonaws.com/test/auth/local/signup', {
 			credentials: {
 				email: "thomas.charlatgmail.com",
@@ -108,9 +98,8 @@ console.log("launching ", SIZE, " at ", FREQUENCY, " request per second");
 	}
 
 	function delay(index, cb) {
-		processed++;
 		let diff = process.hrtime(START);
 		let delay = 1000 * (index / FREQUENCY - diff[0]) - Math.floor(diff[1] / 1000000);
-		setTimeout(run, delay, index, 'cool', cb);	
+		setTimeout(run, delay, index, cb);
 	}
-// }
+}
