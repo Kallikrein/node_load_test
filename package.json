@@ -1,0 +1,26 @@
+{
+  "name": "node_load_test",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node index"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Kallikrein/node_load_test.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Kallikrein/node_load_test/issues"
+  },
+  "homepage": "https://github.com/Kallikrein/node_load_test#readme",
+  "dependencies": {
+    "async": "2.0.1",
+    "axios": "0.13.1",
+    "minimist": "^1.2.0",
+    "stats-lite": "^2.0.3"
+  }
+}
